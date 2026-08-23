@@ -25,11 +25,14 @@
 // OFF in response to OFF<n>
 //
 #define LED_BUILTIN 8 // gpio 8=LED (internal next to the boot button)
+#define RELAY_OFF HIGH
+#define RELAY_ON  LOW
 // GPIO 2,8,9 may prevent boot if pulled low during boot or flashing
-int iopins[8] = {5,6,7,10,20,21,0,1};
+//int iopins[8] = {5,6,7,10,20,21,0,1};
+int iopins[8] = {21,4,3,20,1,0,10,7};
 
 #define MAX_SERIAL_MESSAGE 200 // for faster recovery make this as small as needed for only a few full telegrams
-bool demo_mode = false;
+bool demo_mode = true;
 bool serial_complete = false;
 String serial_message;
 int on_blink = 100;
@@ -45,9 +48,10 @@ void setup() {
   Serial.begin(115200);
   Serial.println("INIT");
   for (int pin=0; pin< 8 ;pin ++){
-    digitalWrite(iopins[pin], HIGH);
     pinMode(iopins[pin], OUTPUT);
+    digitalWrite(iopins[pin], HIGH); // relay off
   }
+  delay(500);
 }
 
 void PollSerial(){
@@ -55,8 +59,8 @@ void PollSerial(){
   while (Serial.available()) {
     // get the new byte:
     char inChar = (char)Serial.read();
-    Serial.write('>');
-    Serial.write(inChar);
+    //Serial.write('>');
+    //Serial.write(inChar);
     if (serial_message.length() < MAX_SERIAL_MESSAGE)
       serial_message += inChar;   // discard any chars when we are full
     if (inChar == '\n') {
@@ -67,17 +71,16 @@ void PollSerial(){
 
 void HandleSerial_Write(String const message) {
   // Write state
-  if (message.length()< 9){
+  if (message.length()< 10){ // includes the carriage return
     Serial.println("WERR");
     return;
   }
   for (int pin=0; pin< 8 ;pin ++){
-    //if (digitalRead(iopins[pin]) == HIGH)
+    pinMode(iopins[pin], OUTPUT);
     if (message[1+pin]=='0')
       digitalWrite(iopins[pin], LOW);
     else
       digitalWrite(iopins[pin], HIGH);
-    pinMode(iopins[pin], OUTPUT);
   }
   Serial.println("WOK");
 }
@@ -152,18 +155,20 @@ void loop() {
   // put your main code here, to run repeatedly:
   if (demo_mode) {
     for (int pin=0; pin< 8 ;pin ++){
-        pinMode(iopins[pin], OUTPUT);
-        digitalWrite(iopins[pin], LOW);   // Turn LED on (try HIGH if inverted)
         digitalWrite(LED_BUILTIN, HIGH); // LED off
+
+        pinMode(iopins[pin], OUTPUT);
+        digitalWrite(iopins[pin], RELAY_ON);   // LOW - inverted
         PollSerial();
         delay(1000);                     // Wait for 1 second
-        digitalWrite(iopins[pin], HIGH);   // Turn LED on (try HIGH if inverted)
+        digitalWrite(iopins[pin], RELAY_OFF);   // HIGH = off inverted
+        
         digitalWrite(LED_BUILTIN, LOW); // LED on
         PollSerial();
-        delay(500);                     // Blink LED
+        delay(100);                     // Blink LED
         pinMode(iopins[pin], INPUT);
-        String statusmessage = "S00000000";
-        statusmessage[1+pin] = '1';
+        String statusmessage = "S11111111";
+        statusmessage[1+pin] = '0';
         Serial.println(statusmessage);
     }
   }else{
